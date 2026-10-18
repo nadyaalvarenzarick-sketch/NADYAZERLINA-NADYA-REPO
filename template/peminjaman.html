@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Peminjaman Buku - Perpustakaan</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-primary mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="/dashboard">Perpustakaan</a>
+        <a href="/logout" class="btn btn-light btn-sm">Logout</a>
+    </div>
+</nav>
+
+<div class="container pb-5">
+    <h2 class="mb-1">Peminjaman Buku</h2>
+    <p class="text-muted">
+        {% if role == "admin" %}
+            Kelola pengajuan peminjaman dari pengguna.
+        {% else %}
+            Ajukan peminjaman buku yang tersedia dan lihat riwayat peminjaman Anda.
+        {% endif %}
+    </p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endwith %}
+
+    {% if role == "user" %}
+    <!-- Form pengajuan (khusus pengguna) -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Ajukan Peminjaman</h5>
+            {% if buku_tersedia %}
+            <form method="POST" class="row g-3">
+                <div class="col-md-7">
+                    <label class="form-label" for="buku_id">Buku</label>
+                    <select class="form-select" name="buku_id" id="buku_id" required>
+                        <option value="" selected disabled>-- Pilih buku --</option>
+                        {% for b in buku_tersedia %}
+                        <option value="{{ b.id }}">{{ b.judul }} - {{ b.penerbit }} (stok: {{ b.stok }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="jumlah">Jumlah</label>
+                    <input type="number" class="form-control" name="jumlah" id="jumlah" min="1" value="1" required>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-success w-100">Ajukan Peminjaman</button>
+                </div>
+            </form>
+            {% else %}
+            <p class="text-muted mb-0">Belum ada buku yang tersedia.</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Buku tersedia -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Buku Tersedia</h5>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle mb-0">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>No.</th>
+                            <th>Judul Buku</th>
+                            <th>Penerbit</th>
+                            <th>Stok</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in buku_tersedia %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ b.judul }}</td>
+                            <td>{{ b.penerbit }}</td>
+                            <td>{{ b.stok }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-center text-muted">Belum ada buku tersedia.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Riwayat / daftar pengajuan -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <h5 class="card-title">
+                {% if role == "admin" %}Daftar Pengajuan Peminjaman{% else %}Riwayat Peminjaman Saya{% endif %}
+            </h5>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle mb-0">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>No.</th>
+                            {% if role == "admin" %}<th>Peminjam</th>{% endif %}
+                            <th>Judul Buku</th>
+                            <th>Jumlah</th>
+                            <th>Tgl Pinjam</th>
+                            <th>Tgl Kembali</th>
+                            <th>Status</th>
+                            {% if role == "admin" %}<th>Aksi</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in riwayat %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            {% if role == "admin" %}
+                            <td>{{ r.nama }} <small class="text-muted">({{ r.username }})</small></td>
+                            {% endif %}
+                            <td>{{ r.judul }}</td>
+                            <td>{{ r.jumlah }}</td>
+                            <td>{{ r.tanggal_pinjam }}</td>
+                            <td>{{ r.tanggal_kembali if r.tanggal_kembali else "-" }}</td>
+                            <td>
+                                {% if r.status == "diajukan" %}
+                                    <span class="badge text-bg-warning">Diajukan</span>
+                                {% elif r.status == "disetujui" %}
+                                    <span class="badge text-bg-primary">Disetujui</span>
+                                {% elif r.status == "dikembalikan" %}
+                                    <span class="badge text-bg-success">Dikembalikan</span>
+                                {% elif r.status == "ditolak" %}
+                                    <span class="badge text-bg-danger">Ditolak</span>
+                                {% else %}
+                                    <span class="badge text-bg-secondary">{{ r.status }}</span>
+                                {% endif %}
+                            </td>
+                            {% if role == "admin" %}
+                            <td>
+                                <form method="POST" class="d-inline">
+                                    <input type="hidden" name="peminjaman_id" value="{{ r.id }}">
+                                    {% if r.status == "diajukan" %}
+                                        <button name="aksi" value="setujui" class="btn btn-success btn-sm">Setujui</button>
+                                        <button name="aksi" value="tolak" class="btn btn-danger btn-sm">Tolak</button>
+                                    {% elif r.status == "disetujui" %}
+                                        <button name="aksi" value="kembalikan" class="btn btn-warning btn-sm">Kembalikan</button>
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="{{ 8 if role == 'admin' else 6 }}" class="text-center text-muted">
+                                Belum ada data peminjaman.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <a href="/dashboard" class="btn btn-secondary">Kembali ke Dashboard</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
